@@ -17,14 +17,40 @@ Not for authenticated X access you do not have: if `cookies.json` is missing, sa
 
 ## Setup
 
-Install into the skill's own venv so the host interpreter stays untouched, then run EVERY script with that venv's python. A bare `python scripts/...` picks up the host `python3`, and every script imports twikit through `x_utils`, so it dies with `ModuleNotFoundError: No module named 'twikit'` before doing anything.
+Get the skill onto the machine one of two ways:
+
+- **From the repo (preferred: complete, and updatable with `git pull`):**
+  ```bash
+  git clone https://github.com/novasterling1337/x-cli ~/.hermes/skills/x-cli
+  ```
+- **Through the Hermes hub:** `hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/main/SKILL.md`.
+  That path copies only the files this SKILL.md names explicitly, so it can land an
+  INCOMPLETE tree — `scripts/x_utils.py`, which every script imports, is the one that
+  goes missing. Check it exists before debugging anything else; if it is absent, install
+  from the repo instead.
+
+Then, from the skill directory:
 
 ```bash
 cd ~/.hermes/skills/x-cli
 python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
-cp config.example.json config.json
 .venv/bin/python scripts/x_auth.py check
 ```
+
+`python3` must be >= 3.10 (twikit's floor; some macOS systems are older). The pinned
+twikit 2.3.3 installs and runs on CPython 3.11 through 3.14 — verified on 3.11.15 and
+3.14.4.
+
+`config.json` is OPTIONAL — only a proxy or credential login needs it; `cookies.json`
+alone is a complete install (a missing config.json used to abort every command, which
+made the hub install path unusable). `config.example.json` in the repo is the template
+when you do want one; it is NOT needed to run anything.
+
+Install into the skill's own venv so the host interpreter stays untouched, then run EVERY script with that venv's python. A bare `python scripts/...` picks up the host `python3`, and every script imports twikit through `x_utils`, so it dies with `ModuleNotFoundError: No module named 'twikit'` before doing anything.
+
+Every script needs its siblings on the import path, and CPython only adds the *script's*
+own directory — so invoke them as `scripts/<name>.py` from the skill root (or any cwd),
+never by copying a single script somewhere else.
 
 Substitute `.venv/bin/python` for `python` in every command below (or `source .venv/bin/activate` once per shell).
 
@@ -186,22 +212,27 @@ twikit had no working path:
 
 ## Installing on another machine
 
-The venv bakes absolute paths, so sync the skill and rebuild it there:
+The repo is the source of truth, so install from it instead of copying files around:
 
 ```bash
-rsync -av --exclude '.venv/' --exclude '__pycache__/' --exclude '.endpoint_ids.json' \
-  -e ssh ~/.hermes/skills/x-cli/ <user>@<host>:~/.hermes/skills/x-cli/
-ssh <user>@<host> 'cd ~/.hermes/skills/x-cli && \
-  <python3.10+> -m venv .venv && ./.venv/bin/pip install "twikit==2.3.3"'
-./.venv/bin/python scripts/smoke_test.py       # 17 read-only checks
+git clone https://github.com/novasterling1337/x-cli ~/.hermes/skills/x-cli
+cd ~/.hermes/skills/x-cli
+python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
+cp <your-cookies.json> .                          # auth_token + ct0, see Auth
+.venv/bin/python scripts/x_auth.py whoami
+.venv/bin/python scripts/smoke_test.py            # 17 read-only checks
 ```
 
-Pin twikit: the shim in `x_compat.py` targets 2.3.3's parsers. `cookies.json` and
-`config.json` ride along with the rsync, so the new host is authenticated as soon
-as it runs (and `.endpoint_ids.json` is excluded so it refreshes there). Without
-Homebrew/pyenv, a uv-managed interpreter works: on macOS that is usually
-`~/.local/share/uv/python/cpython-3.1x-macos-aarch64-none/bin/python3.1x` (system
-`python3` on macOS is 3.9, below twikit's 3.10 floor).
+Updating that host: `git -C ~/.hermes/skills/x-cli pull`. `cookies.json`, `config.json`,
+`.venv/` and `.endpoint_ids.json` are all gitignored, so a pull never touches the session
+or the local environment. `cookies.json` is a live account session, not a config file:
+wherever it lands, treat it as a credential.
+
+Pin twikit: the shim in `x_compat.py` targets 2.3.3's parsers, and
+`scripts/requirements.txt` enforces it. Without Homebrew/pyenv, a uv-managed interpreter
+works: on macOS that is usually
+`~/.local/share/uv/python/cpython-3.1x-macos-aarch64-none/bin/python3.1x` (whatever the
+system `python3` is, it must be >= 3.10).
 
 Installed hosts: this Mac, and `nova@macmini` (uv CPython 3.11.15).
 
@@ -243,7 +274,15 @@ Set `"proxy": "http://user:pass@host:port"` in config.json.
 `~/.hermes/skills/x-cli` is a clone of `novasterling1337/x-cli` — a maintained fork of
 `ignsoftwarellc/x-cli` (kept as the `upstream` remote). It is the canonical source: edit
 here, verify with `scripts/smoke_test.py`, then commit and push. `README.md` documents the
-fork's changes relative to upstream.
+fork's changes relative to upstream, and the repo is public so any other Hermes host can
+clone it.
+
+Nothing in Hermes rewrites it: the skill is not in `.bundled_manifest` (so `hermes update`
+never re-seeds it) and it is not in the hub's `lock.json` (so `hermes skills check` /
+`update` ignore it — `hermes skills list --source hub` does not list it). Even where it IS
+hub-installed, `hermes skills update` skips locally-edited skills by default and only
+overwrites with `--force`, which rmtree-replaces the directory (`--force` would delete the
+`.git` dir). So: `git pull`, not `hermes skills update --force`.
 
 `cookies.json` is a live X session and is gitignored, along with `config.json` and the
 per-host `.endpoint_ids.json`. Never `git add -f` them, and never let a cookie value reach

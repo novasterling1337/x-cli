@@ -20,9 +20,10 @@ CONFIG_PATH = SKILL_DIR / "config.json"
 
 
 def load_config() -> dict:
+    """Config is OPTIONAL: every key has a default, so cookies.json alone is a
+    complete install. Missing config.json must not kill every command."""
     if not CONFIG_PATH.exists():
-        print("❌ config.json not found. Copy config.example.json → config.json", file=sys.stderr)
-        sys.exit(1)
+        return {}
     with open(CONFIG_PATH) as f:
         return json.load(f)
 

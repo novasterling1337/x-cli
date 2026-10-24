@@ -70,22 +70,60 @@ that had no working path at all:
 
 ## 📦 Installation
 
+### As a Hermes skill (agent use)
+
 ```bash
-git clone git@github.com:novasterling1337/x-cli.git
-cd x-cli
+git clone https://github.com/novasterling1337/x-cli ~/.hermes/skills/x-cli
+cd ~/.hermes/skills/x-cli
 
 python3 -m venv .venv
 .venv/bin/pip install -r scripts/requirements.txt
-
-cp config.example.json config.json
 ```
 
-Python **≥ 3.10** is required (twikit floor; macOS system `python3` is 3.9). Without
-Homebrew/pyenv, a uv-managed interpreter works.
+This is the recommended path: the clone is complete and updatable in place with
+`git pull` (your `cookies.json`, `config.json`, `.venv/` and `.endpoint_ids.json` are
+gitignored, so pulling never touches them).
+
+Hermes can also install it through the hub:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/main/SKILL.md
+```
+
+That route copies only the files `SKILL.md` names explicitly, so it can produce an
+incomplete tree — check that `scripts/x_utils.py` exists (`ls scripts/x_utils.py`) before
+debugging anything else; if it is missing, use the clone above.
+
+### Standalone (any directory)
+
+```bash
+git clone https://github.com/novasterling1337/x-cli.git
+cd x-cli
+python3 -m venv .venv
+.venv/bin/pip install -r scripts/requirements.txt
+```
+
+### Both paths
+
+Python **≥ 3.10** is required (twikit's floor). The pinned twikit 2.3.3 installs and runs
+on CPython 3.11 through 3.14 — tested on 3.11.15 and 3.14.4. Without Homebrew/pyenv, a
+uv-managed interpreter works.
+
+`config.json` is **optional**: it exists for a proxy or credential login, and a
+`cookies.json` alone is a complete install. Copy `config.example.json` only if you want to
+set a proxy or store credentials.
 
 Run every script with that venv's python — a bare `python scripts/x_read.py` picks up the
 host interpreter and dies with `ModuleNotFoundError: No module named 'twikit'`. Either use
-`.venv/bin/python` or `source .venv/bin/activate` once per shell.
+`.venv/bin/python` or `source .venv/bin/activate` once per shell, and invoke scripts as
+`scripts/<name>.py` from the project root: they import sibling modules, so a lone script
+copied elsewhere will not run.
+
+Smoke-test the install end to end (read-only against your own account):
+
+```bash
+.venv/bin/python scripts/smoke_test.py     # 17 checks, PASS/FAIL per command
+```
 
 ---
 
