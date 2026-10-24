@@ -23,11 +23,11 @@ Get the skill onto the machine one of two ways:
   ```bash
   git clone https://github.com/novasterling1337/x-cli ~/.hermes/skills/x-cli
   ```
-- **Through the Hermes hub:** `hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/main/SKILL.md`.
-  That path copies only the files this SKILL.md names explicitly, so it can land an
-  INCOMPLETE tree — `scripts/x_utils.py`, which every script imports, is the one that
-  goes missing. Check it exists before debugging anything else; if it is absent, install
-  from the repo instead.
+- **Through the Hermes hub** (installs into `<HERMES_HOME>/skills/x-cli`) — pin a commit SHA, not `main`:
+  ```bash
+  hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/<sha>/SKILL.md
+  ```
+  Two traps, both seen on a real install: only files under `references/ templates/ scripts/ assets/ examples/` that this SKILL.md names EXPLICITLY are copied, so `scripts/x_utils.py` arrives only because Setup names it and `config.example.json` / `README.md` / `LICENSE` never do; and a branch-tip URL (`/main/SKILL.md`) can serve a STALE cached SKILL.md for minutes after a push — the fetch gets `x-cache: HIT` while `curl` on the same URL gets the new bytes, which is how a 13-file install with no `x_utils.py` happens. Pin the SHA, then `ls scripts/x_utils.py` to confirm.
 
 Then, from the skill directory:
 
@@ -277,12 +277,15 @@ here, verify with `scripts/smoke_test.py`, then commit and push. `README.md` doc
 fork's changes relative to upstream, and the repo is public so any other Hermes host can
 clone it.
 
-Nothing in Hermes rewrites it: the skill is not in `.bundled_manifest` (so `hermes update`
-never re-seeds it) and it is not in the hub's `lock.json` (so `hermes skills check` /
-`update` ignore it — `hermes skills list --source hub` does not list it). Even where it IS
-hub-installed, `hermes skills update` skips locally-edited skills by default and only
-overwrites with `--force`, which rmtree-replaces the directory (`--force` would delete the
-`.git` dir). So: `git pull`, not `hermes skills update --force`.
+Nothing in Hermes rewrites THIS copy: the skill is not in `.bundled_manifest` (so
+`hermes update` never re-seeds it) and it is not in the hub's `lock.json`, with
+`hermes skills list --source hub` not listing it either (18 hub-installed skills, none of
+them x-cli), so `hermes skills check` / `update` ignore it. Where it IS hub-installed (a
+fresh `hermes skills install` on another host writes a lock entry with a `content_hash`),
+`hermes skills update` skips skills whose local content no longer matches that hash —
+which a `cookies.json` or `.venv/` in the directory immediately makes true — and the only
+way past it is `--force`, which rmtree-replaces the directory and would take `.git` with
+it. So on every host: `git pull`, or reinstall from a new pinned SHA.
 
 `cookies.json` is a live X session and is gitignored, along with `config.json` and the
 per-host `.endpoint_ids.json`. Never `git add -f` them, and never let a cookie value reach

@@ -84,15 +84,19 @@ This is the recommended path: the clone is complete and updatable in place with
 `git pull` (your `cookies.json`, `config.json`, `.venv/` and `.endpoint_ids.json` are
 gitignored, so pulling never touches them).
 
-Hermes can also install it through the hub:
+Hermes can also install it through the hub — pin the commit, not `main`:
 
 ```bash
-hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/main/SKILL.md
+hermes skills install https://raw.githubusercontent.com/novasterling1337/x-cli/<sha>/SKILL.md
 ```
 
-That route copies only the files `SKILL.md` names explicitly, so it can produce an
-incomplete tree — check that `scripts/x_utils.py` exists (`ls scripts/x_utils.py`) before
-debugging anything else; if it is missing, use the clone above.
+That route copies only the files `SKILL.md` names explicitly, and only from
+`references/ templates/ scripts/ assets/ examples/` — so `config.example.json`,
+`README.md` and `LICENSE` do not come along, and `scripts/x_utils.py` does only because
+`SKILL.md` names it. A branch-tip URL (`/main/SKILL.md`) can additionally serve a stale
+cached copy of `SKILL.md` for minutes after a push, which produces an install with no
+`scripts/x_utils.py` and an immediate `ModuleNotFoundError`. After any hub install, check
+`ls scripts/x_utils.py`; if it is missing, use the clone above.
 
 ### Standalone (any directory)
 
