@@ -237,3 +237,15 @@ reverse-engineering project for no gain.
 
 ## Proxy (optional)
 Set `"proxy": "http://user:pass@host:port"` in config.json.
+
+## This install is a git working copy
+
+`~/.hermes/skills/x-cli` is a clone of `novasterling1337/x-cli` — a maintained fork of
+`ignsoftwarellc/x-cli` (kept as the `upstream` remote). It is the canonical source: edit
+here, verify with `scripts/smoke_test.py`, then commit and push. `README.md` documents the
+fork's changes relative to upstream.
+
+`cookies.json` is a live X session and is gitignored, along with `config.json` and the
+per-host `.endpoint_ids.json`. Never `git add -f` them, and never let a cookie value reach
+a commit, an issue, or a chat reply.
+
