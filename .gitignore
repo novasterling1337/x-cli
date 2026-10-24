@@ -1,0 +1,17 @@
+# Secrets — never commit. cookies.json holds a live X session (auth_token + ct0).
+cookies.json
+config.json
+
+# Machine-specific cache (GraphQL query ids, refreshed per host every 24h)
+.endpoint_ids.json
+
+# Local env / build artefacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# ClawHub install metadata — local install bookkeeping, not fork source
+_meta.json
+skill-card.md
