@@ -86,8 +86,14 @@ def format_tweet(tweet, json_mode=False) -> str:
                     best = max(mp4s, key=lambda v: v.get("bitrate", 0))
                     media_urls.append({"url": best["url"], "type": "video", "alt_text": None})
 
-    # Extract reply context
-    reply_to = getattr(tweet, "in_reply_to_tweet_id", None)
+    # Extract reply context. twikit exposes the parent id as `in_reply_to`
+    # (a string); there is no `in_reply_to_tweet_id` attribute on its Tweet, so
+    # the old getattr always returned None and EVERY reply looked like an
+    # original post to machine readers. `reply_to` on the object is a lazily
+    # cached list of parent Tweet objects, not an id, so it cannot be used here.
+    reply_to = getattr(tweet, "in_reply_to", None)
+    if reply_to is not None:
+        reply_to = str(reply_to)
 
     data = {
         "id": tweet.id,
@@ -98,6 +104,13 @@ def format_tweet(tweet, json_mode=False) -> str:
         "url": f"https://x.com/{tweet.user.screen_name}/status/{tweet.id}" if tweet.user else None,
         "retweet_count": getattr(tweet, "retweet_count", 0),
         "favorite_count": getattr(tweet, "favorite_count", 0),
+        # Present on the Tweet object but never emitted before, which is why
+        # machine readers saw replies/views as unavailable. `view_count` is
+        # sometimes absent (older tweets, some payloads): emit None, not 0.
+        "reply_count": getattr(tweet, "reply_count", None),
+        "quote_count": getattr(tweet, "quote_count", None),
+        "bookmark_count": getattr(tweet, "bookmark_count", None),
+        "view_count": getattr(tweet, "view_count", None),
         "media": media_urls if media_urls else None,
         "reply_to": reply_to,
     }
