@@ -15,8 +15,10 @@ Options:
 import argparse
 import json
 import re
+import sys
 
 from x_utils import get_client, run, normalize_argv
+from x_tweet_fetch import fetch_tweet_data
 
 
 def extract_tweet_id(url_or_id: str) -> str:
@@ -56,8 +58,19 @@ async def cmd_reply(args):
 async def cmd_quote(args):
     client = await get_client()
     tweet_id = extract_tweet_id(args.target)
-    tweet = await client.get_tweet_by_id(tweet_id)
-    quote_url = f"https://x.com/{tweet.user.screen_name}/status/{tweet_id}"
+    # Same payload-variance bug as x_read: a bare get_tweet_by_id raises
+    # KeyError on some reads. All this needs is the author handle for the URL.
+    try:
+        data = await fetch_tweet_data(client, tweet_id)
+    except RuntimeError as e:
+        print(f"❌ cannot resolve quoted tweet: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    author = data.get("user")
+    quote_url = (
+        f"https://x.com/{author}/status/{tweet_id}"
+        if author and author != "unknown"
+        else f"https://x.com/i/status/{tweet_id}"
+    )
 
     if args.dry_run:
         print(f"🔍 DRY RUN — would quote {quote_url}:\n\n{args.text}")
