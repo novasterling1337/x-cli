@@ -66,7 +66,16 @@ async def get_client(config: dict = None) -> Client:
     return client
 
 
-def format_tweet(tweet, json_mode=False) -> str:
+def _as_int(value):
+    """int when the value is an integer or an all-digit string, else unchanged."""
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return value
+
+
+def tweet_to_data(tweet) -> dict:
+    """Normalise a twikit Tweet into the dict every formatter/backend shares."""
+
     # Extract media URLs
     media_urls = []
     if hasattr(tweet, "media") and tweet.media:
@@ -110,22 +119,37 @@ def format_tweet(tweet, json_mode=False) -> str:
         "reply_count": getattr(tweet, "reply_count", None),
         "quote_count": getattr(tweet, "quote_count", None),
         "bookmark_count": getattr(tweet, "bookmark_count", None),
-        "view_count": getattr(tweet, "view_count", None),
+        # twikit hands back view_count as a numeric STRING while count fields
+        # are ints; normalise so JSON consumers see one type on both the twikit
+        # and raw-payload paths.
+        "view_count": _as_int(getattr(tweet, "view_count", None)),
         "media": media_urls if media_urls else None,
         "reply_to": reply_to,
     }
+    return data
+
+
+def format_tweet(tweet, json_mode=False) -> str:
+    return format_tweet_data(tweet_to_data(tweet), json_mode)
+
+
+def format_tweet_data(data: dict, json_mode=False) -> str:
+    """Render a normalised tweet dict (twikit Tweet or raw payload parse)."""
     if json_mode:
         return json.dumps(data, ensure_ascii=False)
 
+    text = data.get("text") or ""
     lines = [
-        f"@{data['user']} ({data['name']})",
-        f"{data['text']}",
-        f"❤️ {data['favorite_count']}  🔁 {data['retweet_count']}  🔗 {data['url']}",
+        f"@{data.get('user', 'unknown')} ({data.get('name', 'unknown')})",
+        f"{text}",
+        f"❤️ {data.get('favorite_count', 0)}  🔁 {data.get('retweet_count', 0)}  🔗 {data.get('url')}",
     ]
-    if data["created_at"]:
+    if data.get("created_at"):
         lines.insert(0, f"📅 {data['created_at']}")
+    reply_to = data.get("reply_to")
     if reply_to:
         lines.append(f"↩️ Reply to: https://x.com/i/status/{reply_to}")
+    media_urls = data.get("media") or []
     if media_urls:
         for m in media_urls:
             emoji = "🖼️" if m["type"] == "photo" else "🎥" if m["type"] == "video" else "📎"

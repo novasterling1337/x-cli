@@ -201,6 +201,14 @@ x.com frontend: without it every command dies with
 Three commands are implemented differently from what their names imply, because
 twikit had no working path:
 
+- `tweet`/`thread`/`replies` fetch through `scripts/x_tweet_fetch.py`, not
+  `client.get_tweet_by_id` directly. twikit's `tweet_from_data` indexes
+  `core.user_results` unconditionally, and X varies that shape between identical
+  requests (author block withheld / nested visibility wrapper), so a bare call
+  raises `KeyError: 'user_results'` on some reads of a tweet that read fine a
+  minute earlier. `fetch_tweet_data()` retries, then parses the raw
+  `TweetDetail` payload into the same dict schema (`x_utils.tweet_to_data`), so
+  output and `--json` keys are identical on both paths.
 - `replies`/`thread` drain the `Result` attached to the tweet (`tweet.replies`
   + `Result.next()`); twikit 2.3.3 has no `client.get_tweet_replies`.
 - `mentions` searches `@me -from:me` instead of `get_notifications("Mentions")`,

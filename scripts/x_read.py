@@ -23,7 +23,15 @@ import json
 import re
 import sys
 
-from x_utils import load_config, get_client, format_tweet, run, normalize_argv
+from x_utils import (
+    load_config,
+    get_client,
+    format_tweet,
+    format_tweet_data,
+    run,
+    normalize_argv,
+)
+from x_tweet_fetch import fetch_tweet_data, get_tweet_resilient
 
 
 def extract_tweet_id(url_or_id: str) -> str:
@@ -47,8 +55,14 @@ def format_user(user, json_mode=False) -> str:
 async def cmd_tweet(args):
     client = await get_client()
     tweet_id = extract_tweet_id(args.target)
-    tweet = await client.get_tweet_by_id(tweet_id)
-    print(format_tweet(tweet, args.json))
+    # twikit's parser dies on some payload shapes; fetch_tweet_data retries and
+    # then falls back to parsing the raw TweetDetail response itself.
+    try:
+        data = await fetch_tweet_data(client, tweet_id)
+    except RuntimeError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        raise SystemExit(2)
+    print(format_tweet_data(data, args.json))
 
 
 async def cmd_user(args):
@@ -98,7 +112,20 @@ async def collect_replies(result, count: int) -> list:
 async def cmd_thread(args):
     client = await get_client()
     tweet_id = extract_tweet_id(args.target)
-    tweet = await client.get_tweet_by_id(tweet_id)
+    tweet = await get_tweet_resilient(client, tweet_id)
+    if tweet is None:
+        # twikit could not parse the payload; still show the root tweet from a
+        # raw parse rather than exiting with nothing.
+        try:
+            data = await fetch_tweet_data(client, tweet_id)
+        except RuntimeError as e:
+            print(f"❌ {e}", file=sys.stderr)
+            raise SystemExit(2)
+        print(format_tweet_data(data, args.json))
+        if not args.json:
+            print("\n(note: author continuations unavailable — twikit could not "
+                  "parse this payload)", file=sys.stderr)
+        return
     print(format_tweet(tweet, args.json))
     if not args.json:
         print("\n" + "─" * 50)
@@ -116,7 +143,15 @@ async def cmd_thread(args):
 async def cmd_replies(args):
     client = await get_client()
     tweet_id = extract_tweet_id(args.target)
-    tweet = await client.get_tweet_by_id(tweet_id)
+    # twikit's tweet parser is shape-dependent (`core.user_results`) and X
+    # varies the payload between identical requests, so the same tweet reads
+    # fine on one call and raises KeyError on the next.
+    tweet = await get_tweet_resilient(client, tweet_id)
+    if tweet is None:
+        print(f"Could not read tweet {tweet_id} after 3 attempts", file=sys.stderr)
+        print("X returned an unparseable payload for this tweet. Paste the "
+              "replies, or retry in a minute.", file=sys.stderr)
+        raise SystemExit(2)
     replies = await collect_replies(tweet.replies, args.count)
     separator = "\n" if args.json else "\n" + "─" * 50 + "\n"
     output = [format_tweet(r, args.json) for r in replies[:args.count]]
