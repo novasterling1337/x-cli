@@ -15,3 +15,6 @@ __pycache__/
 # ClawHub install metadata — local install bookkeeping, not fork source
 _meta.json
 skill-card.md
+
+# second interpreter: twifork write backend (module name collides with twikit)
+.venv-write/

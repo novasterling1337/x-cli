@@ -19,7 +19,7 @@ from x_utils import get_client, format_tweet, run, normalize_argv
 
 async def cmd_search(args):
     client = await get_client()
-    tweets = await client.search_tweet(args.query, product="Latest", count=args.count)
+    tweets = await client.search_tweet(args.query, product=args.product, count=args.count)
     separator = "\n" if args.json else "\n" + "─" * 50 + "\n"
     output = []
     for tweet in tweets[:args.count]:
@@ -36,6 +36,8 @@ def main():
     parser = argparse.ArgumentParser(description="x-cli search — Search X/Twitter")
     parser.add_argument("query", help="Search query (supports X advanced search syntax)")
     parser.add_argument("--count", type=int, default=10, help="Number of results (default: 10)")
+    parser.add_argument("--product", choices=("Top", "Latest"), default="Latest",
+                        help="X search product: Latest (default) or Top for what travels")
     parser.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args(normalize_argv())
