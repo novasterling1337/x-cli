@@ -93,7 +93,17 @@ async def build_client():
 
 
 def _code_from(message: str) -> int | None:
-    m = re.search(r"\((\d{2,3})\)\s*$", message) or re.search(r"'code':\s*(\d+)", message)
+    """X's numeric refusal code, out of twikit's exception text.
+
+    twikit renders the code as a trailing parenthetical — "...(226)" — but the
+    wording around it varies, so take the LAST 2-3 digit parenthetical rather
+    than anchoring to the end of the string. The miles poster parks a job on
+    this number; a None here means the retry ladder cannot tell 226 from 344.
+    """
+    found = re.findall(r"\((\d{2,3})\)", message or "")
+    if found:
+        return int(found[-1])
+    m = re.search(r"'code':\s*(\d+)", message or "")
     return int(m.group(1)) if m else None
 
 
@@ -140,11 +150,14 @@ async def cmd_write(args) -> int:
                 print(f"  {k}: {v}")
         return 0
 
-    from twikit.errors import CouldNotTweet
+    from twikit.errors import TwitterException
 
     try:
         result = await client.create_tweet(**kwargs)
-    except CouldNotTweet as exc:
+    except TwitterException as exc:
+        # The base class, not just CouldNotTweet: a rate-limit (429 -> 88/344) or
+        # an auth refusal arrives as a sibling type, and the miles poster's
+        # retry ladder needs the numeric code from any of them.
         msg = str(exc)
         code = _code_from(msg)
         print(json.dumps({"error": msg, "code": code, "backend": "twifork"}), file=sys.stderr)

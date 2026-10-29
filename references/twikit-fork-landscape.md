@@ -92,6 +92,10 @@ target refused, gate OPEN) instead of 226. Do not report "cookies are stale" fro
 Related: `set_cookies` on twifork 2.4.0 takes a positional dict (`set_cookies(cookies)`), not
 kwargs — `set_cookies(**cookies)` raises `TypeError: unexpected keyword argument`.
 
+Filed upstream as https://github.com/PawiX25/twifork/issues/6. Until it is fixed in a release,
+keep the patch: a base-library upgrade that silently drops it brings back the false
+"cookies are expired" verdict on every write.
+
 ## Version-drift pitfalls when writing your own probe
 
 - The handshake object is `client.client_transaction`; notes and older snippets say
